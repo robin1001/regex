@@ -1,0 +1,7 @@
+*.o
+*.swp
+*.exe
+*.stackdump
+
+fsminfo
+fsm_test
