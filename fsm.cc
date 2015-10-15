@@ -2,6 +2,7 @@
  * Created on 2015-09-25
  * Author: zhangbinbin
  */
+#include <string.h>
 
 #include "fsm.h"
 
@@ -83,7 +84,12 @@ void Fsm::read_topo(const char *file) {
 */
 void Fsm::read(const char *file) {
     reset();
-    FILE *fp = fopen(file, "rb");
+    FILE *fp = NULL;
+    if (strcmp(file, "-") == 0) {
+        fp = stdin;
+    } else {
+        fp = fopen(file, "rb");
+    }
     if (!fp) {
         mini_error("file %s not exist", file);
     }
@@ -106,11 +112,19 @@ void Fsm::read(const char *file) {
         }
     }
     assert(arcs_num == num_arcs());
-    fclose(fp);
+    if (fp != stdin) {
+        fclose(fp);
+    }
 }
 
 void Fsm::write(const char *file) const { // write fsm to file
-    FILE *fp = fopen(file, "wb");
+    FILE *fp = NULL;
+    if (strcmp(file, "-") == 0) {
+        fp = stdout;
+    }
+    else {
+        fp = fopen(file, "wb");
+    }
     int states_num = num_states(), arcs_num = num_arcs();
     fwrite(&states_num, sizeof(int), 1, fp);
     fwrite(&arcs_num, sizeof(int), 1, fp);
@@ -124,22 +138,24 @@ void Fsm::write(const char *file) const { // write fsm to file
             fwrite(&states_[i]->arcs[j].next_state, sizeof(int), 1, fp);
         }
     }
-    fclose(fp);
+    if (fp != stdout) {
+        fclose(fp);
+    }
 }
 
 // show the text format fsm info 
 void Fsm::fsm_info() const {
-    printf("fsm info table\n");
-    printf("num_states:\t%d\n", num_states()); 
-    printf("num_arcs:\t%d\n", num_states()); 
-    printf("start id:\t%d\n", start_); 
-    printf("end id:\t%d\n", end_); 
+    fprintf(stderr, "fsm info table\n");
+    fprintf(stderr, "num_states:\t%d\n", num_states()); 
+    fprintf(stderr, "num_arcs:\t%d\n", num_states()); 
+    fprintf(stderr, "start id:\t%d\n", start_); 
+    fprintf(stderr, "end id:\t%d\n", end_); 
     for (int i = 0; i < states_.size(); i++) {
-        printf("state %d arcs %d: { ", i, states_[i]->num_arcs());
+        fprintf(stderr, "state %d arcs %d: { ", i, states_[i]->num_arcs());
         for (int j = 0; j < states_[i]->num_arcs(); j++) {
-            printf("[%d, %d] ", states_[i]->arcs[j].ilabel, \
+            fprintf(stderr, "[%d, %d] ", states_[i]->arcs[j].ilabel, \
                                 states_[i]->arcs[j].next_state);
         }
-        printf("}\n");
+        fprintf(stderr, "}\n");
     }
 }

@@ -10,9 +10,9 @@
 
 #define mini_log(fmt, arg...) \
 do { \
-    fprintf(stdout, "LOG (%s:%s():%d)", __FILE__, __func__, __LINE__); \
-    fprintf(stdout, fmt, ##arg); \
-    fprintf(stdout, "\n"); \
+    fprintf(stderr, "LOG (%s:%s():%d)", __FILE__, __func__, __LINE__); \
+    fprintf(stderr, fmt, ##arg); \
+    fprintf(stderr, "\n"); \
 } while(0)
 
 

@@ -1,24 +1,30 @@
 CXX = g++
 CXXFLAGS = -g -Wall -W -Wno-sign-compare
 
-BIN = fsminfo
-TEST_BIN = fsm_test
+OBJ = fsm.o
+BIN = fsm-info fsm-copy
+TEST_BIN = fsm-test
 
-all: $(BIN) test
+all: $(BIN) 
 
-compile_test: $(TEST_BIN)
+test_compile: $(TEST_BIN)
+    
+test: test_compile
+	@for x in $(TEST_BIN); do \
+		printf "Running $$x ..."; \
+		./$$x &> /dev/null; \
+		if [ $$? -ne 0 ]; then \
+            echo "... Fail $$x"; \
+		else \
+            echo "... Success $$x"; \
+		fi \
+	done
 
-test:compile_test
+$(BIN): $(OBJ)
 
-fsm_test: fsm_test.cc fsm.o
-	$(CXX) -o $@ $< fsm.o $(CXXFLAGS)
+$(TEST_BIN): $(OBJ)
 
-fsminfo: fsminfo.cc fsm.o
-	$(CXX) -o $@ $< fsm.o $(CXXFLAGS)
-
-
-fsm.o:fsm.h utils.h
-
+fsm.o: fsm.h utils.h
 
 .PHONY: clean
 clean:
