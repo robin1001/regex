@@ -64,6 +64,9 @@ public:
 		}
 		return count;
     }
+    int num_labels() const {
+        return label_sets_.size();
+    }
     int add_state();
     void add_arc(int id, const Arc &arc);
     void read_topo(const char *file);
@@ -71,12 +74,16 @@ public:
 	void write(const char *file) const; // write fsm to file
     void fsm_info () const; 
     bool run_nfa(std::vector<int> &input) const;
+    void determine(Fsm *fsm_out) const; 
+    void epsilon_closure(std::set<int> &in_set, 
+                         std::set<int> *out_set) const; 
 protected:
     void step_epsilon(State *state, std::set<int> *list) const; 
 protected:
     int start_;
     int end_;
     std::vector<State *> states_;
+    std::set<int> label_sets_;
 };
 
 #endif

@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include <iostream>
+#include <queue>
 
 #include "fsm.h"
 
@@ -20,6 +21,7 @@ void Fsm::reset() {
         }
     }
     states_.clear();
+    label_sets_.clear();
 }
 
 int Fsm::add_state() {
@@ -38,6 +40,7 @@ void Fsm::add_arc(int id, const Arc &arc) {
     }
 	assert(id < states_.size());
 	states_[id]->add_arc(arc);
+    if (arc.ilabel != 0) label_sets_.insert(arc.ilabel);
 }
 
 
@@ -61,6 +64,7 @@ void Fsm::read_topo(const char *file) {
         int num = sscanf(buffer, "%d %d %d", &src, &dest, &label);
 		//mini_log("read arc %d %d %d", src, dest, label);
         if (num == 3) {
+            if (label != 0) label_sets_.insert(label);
 			add_arc(src, Arc(label, dest));	
             if (first_line) {
                 set_start(src);
@@ -82,6 +86,7 @@ void Fsm::read_topo(const char *file) {
 /* 	fsm read write file format 
   	num_states(int) num_arcs(int)
 	start_(int) end_(int)
+    label_set_ num_labels(int) [label1, label2, ...] 
 	every state's arcs info: num_arcs(int) {ilabel(int) next_state(int) ...}
 */
 void Fsm::read(const char *file) {
@@ -110,6 +115,7 @@ void Fsm::read(const char *file) {
         for (int j = 0; j < state_arcs; j++) {
             fread(&ilabel, sizeof(int), 1, fp);
             fread(&next_state, sizeof(int), 1, fp);
+            if (ilabel != 0) label_sets_.insert(ilabel);
             states_[i]->add_arc(Arc(ilabel, next_state));
         }
     }
@@ -176,12 +182,37 @@ void Fsm::step_epsilon(State *state, std::set<int> *list) const {
     }
 }
 
+void Fsm::epsilon_closure(std::set<int> &in_set, std::set<int> *out_set) const {
+    typedef std::set<int>::const_iterator Iterator;
+    out_set->clear();
+    std::queue<int> q;
+    for (Iterator it = in_set.begin(); it != in_set.end(); it++) {
+        q.push(*it);
+        out_set->insert(*it);
+    }
+    while (!q.empty()) {
+        int id = q.front();
+        q.pop();
+        assert(id < states_.size());
+        for (int i = 0; i < states_[id]->num_arcs(); i++) {
+            if (0 == states_[id]->arcs[i].ilabel) {
+                int next_state = states_[id]->arcs[i].next_state;
+                if (out_set->find(next_state) == out_set->end()) {
+                    out_set->insert(next_state);
+                    q.push(next_state);
+                }
+            }
+        }
+    }
+}
+
 bool Fsm::run_nfa(std::vector<int> &input) const {
     typedef std::set<int>::const_iterator Iterator;
     std::set<int> current_set, tmp_set, next_set;
-    current_set.insert(start_);
+    tmp_set.insert(start_);
     // Step epsilon, add it in current list
-    step_epsilon(states_[start_], &current_set);
+    epsilon_closure(tmp_set, &current_set);
+    tmp_set.clear();
 
     // Simulate nfa
     for (int i = 0; i < input.size(); i++) { 
@@ -194,21 +225,17 @@ bool Fsm::run_nfa(std::vector<int> &input) const {
                 }
             }
         }
-        /* Step all next_list with epsilon input and add it
-         * We now impliment it with recurrsive
-         * It can be implimented with width first search more efficient
+        /* next_set is epsilon the epsilon_closure of tmp_set
+         * It can be implimented with recurrsive calls
+         * We now impliment it with width first search for efficiency 
          */
-        next_set = tmp_set;  // Copy all to next_set
-        for (Iterator it = tmp_set.begin(); it != tmp_set.end(); it++) {
-            State *state = states_[*it];
-            step_epsilon(state, &next_set); 
-        }
+        epsilon_closure(tmp_set, &next_set);
 
-        //std::cerr << "next state set ";
-        //for (Iterator it = next_set.begin(); it != next_set.end(); it++) {
-        //    std::cerr << *it << " ";
-        //}
-        //std::cerr << "\n";
+        std::cerr << "next state set ";
+        for (Iterator it = next_set.begin(); it != next_set.end(); it++) {
+            std::cerr << *it << " ";
+        }
+        std::cerr << "\n";
 
         // Exchange current and next list
         current_set.swap(next_set);
@@ -220,4 +247,10 @@ bool Fsm::run_nfa(std::vector<int> &input) const {
     Iterator it = current_set.find(end_);
     if (it != current_set.end()) return true;
     else return false;
+}
+
+
+void Fsm::determine(Fsm *fsm_out) const {
+    assert(fsm_out != NULL);
+    fsm_out->reset();
 }
