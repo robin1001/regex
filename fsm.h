@@ -5,8 +5,10 @@
 #ifndef FSM_H_
 
 #include <stdio.h>
-#include <vector>
 #include <assert.h>
+
+#include <vector>
+#include <set>
 
 #include "utils.h"
 
@@ -68,7 +70,10 @@ public:
 	void read(const char *file); //read fsm from file
 	void write(const char *file) const; // write fsm to file
     void fsm_info () const; 
-private:
+    bool run_nfa(std::vector<int> &input) const;
+protected:
+    void step_epsilon(State *state, std::set<int> *list) const; 
+protected:
     int start_;
     int end_;
     std::vector<State *> states_;

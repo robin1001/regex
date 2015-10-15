@@ -32,8 +32,34 @@ void test_read_topo() {
     //fsm.write("tmp.fsm");
 }
 
+void test_run_nfa() {
+    const char *topo = "0 1 0\n"
+                 	   "0 2 0\n"
+                 	   "1 1 1\n"
+                 	   "2 2 0\n"
+                 	   "1 3 3\n"
+                 	   "2 3 0\n"
+                 	   "3\n";
+    const char *tmpfile = "tmp.topo";
+	write_tmp_file(tmpfile, topo);
+	Fsm fsm;
+	fsm.read_topo(tmpfile);
+    int arr0[] = {3};
+    std::vector<int> input0(arr0, arr0+1);
+    assert(true == fsm.run_nfa(input0));
+    int arr1[] = {1,3};
+    std::vector<int> input1(arr1, arr1+2);
+    assert(true == fsm.run_nfa(input1));
+    int arr2[] = {1, 1, 3};
+    std::vector<int> input2(arr2, arr2+3);
+    assert(true == fsm.run_nfa(input2));
+    int arr3[] = {1, 2, 3};
+    std::vector<int> input3(arr3, arr3+3);
+    assert(false == fsm.run_nfa(input3));
+}
 
 int main() {
     test_read_topo();
+    test_run_nfa();
 }
 

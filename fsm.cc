@@ -4,6 +4,8 @@
  */
 #include <string.h>
 
+#include <iostream>
+
 #include "fsm.h"
 
 Fsm::~Fsm() {
@@ -117,7 +119,8 @@ void Fsm::read(const char *file) {
     }
 }
 
-void Fsm::write(const char *file) const { // write fsm to file
+// Write fsm to file
+void Fsm::write(const char *file) const { 
     FILE *fp = NULL;
     if (strcmp(file, "-") == 0) {
         fp = stdout;
@@ -143,7 +146,7 @@ void Fsm::write(const char *file) const { // write fsm to file
     }
 }
 
-// show the text format fsm info 
+// Show the text format fsm info 
 void Fsm::fsm_info() const {
     fprintf(stderr, "fsm info table\n");
     fprintf(stderr, "num_states:\t%d\n", num_states()); 
@@ -158,4 +161,63 @@ void Fsm::fsm_info() const {
         }
         fprintf(stderr, "}\n");
     }
+}
+
+void Fsm::step_epsilon(State *state, std::set<int> *list) const {
+    for (int i = 0; i < state->num_arcs(); i++) {
+        if (0 == state->arcs[i].ilabel) {
+            int state_id = state->arcs[i].next_state;
+            assert(state_id < states_.size());
+            if (list->find(state_id) == list->end()) {
+                list->insert(state_id);
+                step_epsilon(states_[state_id], list);
+            }
+        }
+    }
+}
+
+bool Fsm::run_nfa(std::vector<int> &input) const {
+    typedef std::set<int>::const_iterator Iterator;
+    std::set<int> current_set, tmp_set, next_set;
+    current_set.insert(start_);
+    // Step epsilon, add it in current list
+    step_epsilon(states_[start_], &current_set);
+
+    // Simulate nfa
+    for (int i = 0; i < input.size(); i++) { 
+        // Loop all current state with input[i]
+        for (Iterator it = current_set.begin(); it != current_set.end(); it++) {
+            State *state = states_[*it];
+            for (int j = 0; j < state->num_arcs(); j++) {
+                if (input[i] == state->arcs[j].ilabel) {
+                    tmp_set.insert(state->arcs[j].next_state);
+                }
+            }
+        }
+        /* Step all next_list with epsilon input and add it
+         * We now impliment it with recurrsive
+         * It can be implimented with width first search more efficient
+         */
+        next_set = tmp_set;  // Copy all to next_set
+        for (Iterator it = tmp_set.begin(); it != tmp_set.end(); it++) {
+            State *state = states_[*it];
+            step_epsilon(state, &next_set); 
+        }
+
+        //std::cerr << "next state set ";
+        //for (Iterator it = next_set.begin(); it != next_set.end(); it++) {
+        //    std::cerr << *it << " ";
+        //}
+        //std::cerr << "\n";
+
+        // Exchange current and next list
+        current_set.swap(next_set);
+        next_set.clear();
+        tmp_set.clear();
+        if (current_set.empty()) break;
+    }
+    // Judge whether end in the final current set
+    Iterator it = current_set.find(end_);
+    if (it != current_set.end()) return true;
+    else return false;
 }
