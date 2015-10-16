@@ -59,6 +59,8 @@ void Fsm::add_arc(int id, const Arc &arc) {
    only one src in the last line as the final state
 */
 void Fsm::read_topo(const char *file) {
+    assert(file != NULL);
+    reset();
     FILE *fp = fopen(file, "r");
     if (!fp) {
         mini_error("file %s not exist", file);
@@ -97,6 +99,7 @@ void Fsm::read_topo(const char *file) {
 	every state's arcs info: num_arcs(int) {ilabel(int) next_state(int) ...}
 */
 void Fsm::read(const char *file) {
+    assert(file != NULL);
     reset();
     FILE *fp = NULL;
     if (strcmp(file, "-") == 0) {
@@ -139,6 +142,7 @@ void Fsm::read(const char *file) {
 
 // Write fsm to file
 void Fsm::write(const char *file) const { 
+    assert(file != NULL);
     FILE *fp = NULL;
     if (strcmp(file, "-") == 0) {
         fp = stdout;
@@ -204,6 +208,7 @@ bool Fsm::is_finish(int id) const {
 
 void Fsm::epsilon_closure(const std::set<int> &in_set, 
                           std::set<int> *out_set) const {
+    assert(out_set != NULL);
     std::queue<int> q;
     for (SetIterator it = in_set.begin(); it != in_set.end(); it++) {
         q.push(*it);
@@ -354,11 +359,14 @@ bool Fsm::is_subset(const std::set<int> &set0, const std::set<int> &set1) const 
 void Fsm::minimize(Fsm *fsm_out) const {
     assert(fsm_out != NULL);
     typedef std::unordered_set<std::set<int> >::const_iterator SetSetIterator;
-    std::set<int> other_set;
     std::unordered_set<std::set<int> > prev_sets, current_sets, split_sets;
-    for (int i = 0; i < states_.size(); i++) {
-        if (i != start_) {
-            other_set.insert(i);
+    // Split into two sets, start and none start states
+    {
+        std::set<int> other_set;
+        for (int i = 0; i < states_.size(); i++) {
+            if (i != start_) {
+                other_set.insert(i);
+            }
         }
     }
     current_sets.insert(other_set);
@@ -394,9 +402,9 @@ void Fsm::minimize(Fsm *fsm_out) const {
     // Fsm out add state and set final state
     int start = fsm_out->add_state();
     fsm_out->set_start(start);
-    std::set<int> start_set;
     std::unordered_map<std::set<int>, int> table;
     typedef std::unordered_map<std::set<int>, int>::const_iterator TableIterator;
+    std::set<int> start_set;
     start_set.insert(start_); //
     table.insert(std::make_pair(start_set, start));
     for (SetSetIterator it = current_sets.begin(); it != current_sets.end(); it++) {

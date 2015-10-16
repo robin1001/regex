@@ -80,17 +80,17 @@ public:
     bool run_nfa(const std::vector<int> &input) const;
     void determine(Fsm *fsm_out) const; 
     void minimize(Fsm *fsm_out) const; 
-    void epsilon_closure(const std::set<int> &in_set, 
-                         std::set<int> *out_set) const; 
-    void move(const std::set<int> &in_set, 
-              int label, 
-              std::set<int> *out_set) const; 
     bool is_finish(const std::set<int> &t) const;
     bool is_finish(int id) const;
+protected:
+    void epsilon_closure(const std::set<int> &in_set, 
+                         std::set<int> *out_set) const; 
     void split_set_by_input(const std::set<int> &in_set, 
                             int label, 
                             std::unordered_set<std::set<int> > *out_sets) const ; 
-protected:
+    void move(const std::set<int> &in_set, 
+              int label, 
+              std::set<int> *out_set) const; 
     bool is_subset(const std::set<int> &set0, const std::set<int> &set1) const;
 
 protected:
