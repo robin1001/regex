@@ -9,6 +9,7 @@
 
 #include <vector>
 #include <set>
+#include <unordered_set>
 
 #include "utils.h"
 
@@ -86,6 +87,12 @@ public:
               std::set<int> *out_set) const; 
     bool is_finish(const std::set<int> &t) const;
     bool is_finish(int id) const;
+    void split_set_by_input(const std::set<int> &in_set, 
+                            int label, 
+                            std::unordered_set<std::set<int> > *out_sets) const ; 
+protected:
+    bool is_subset(const std::set<int> &set0, const std::set<int> &set1) const;
+
 protected:
     int start_;
     std::set<int> finish_set_;

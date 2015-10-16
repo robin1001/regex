@@ -7,11 +7,11 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#include "fsm.h"
+#include <iostream>
+#include <set>
+#include <unordered_set>
 
-Fsm::Fsm(const char *topo_file) {
-    read_topo(topo_file);
-}
+#include "fsm.h"
 
 void write_tmp_file(const char *file_name, const char *content) {
     FILE *fp = fopen(file_name, "w");
@@ -119,6 +119,40 @@ void test_determine() {
     //fsm_out.fsm_info();
 }
 
+void test_split_set_by_input() {
+    const char *topo = "0 1 1\n"
+                 	   "0 2 2\n"
+                 	   "1 3 3\n"
+                 	   "2 3 3\n"
+                 	   "3\n";
+    const char *tmpfile = "tmp.topo";
+	write_tmp_file(tmpfile, topo);
+	Fsm fsm(tmpfile);
+    std::set<int> in_set;
+    std::unordered_set<std::set<int> > out_sets; 
+    in_set.insert(1), in_set.insert(2), in_set.insert(3);
+    fsm.split_set_by_input(in_set, 1, &out_sets);
+    assert(out_sets.size() == 1);
+    out_sets.clear();
+    fsm.split_set_by_input(in_set, 3, &out_sets);
+    assert(out_sets.size() == 2);
+}
+
+void test_minimize() {
+    const char *topo = "0 1 1\n"
+                 	   "0 2 2\n"
+                 	   "1 3 3\n"
+                 	   "2 3 3\n"
+                 	   "3\n";
+    const char *tmpfile = "tmp.topo";
+	write_tmp_file(tmpfile, topo);
+	Fsm fsm_in(tmpfile), fsm_out;
+    fsm_in.minimize(&fsm_out);
+    //std::cerr << fsm_out.num_states() << " " << fsm_out.num_arcs() << "\n";
+    assert(fsm_out.num_states() == 3);
+    assert(fsm_out.num_arcs() == 3);
+}
+
 int main() {
     // - Test read 
     test_read_topo();
@@ -130,5 +164,9 @@ int main() {
     test_run_nfa();
     // - Test determine
     test_determine();
+    // - Test split by input
+    test_split_set_by_input();
+    // - Test fsm Minimize()
+    test_minimize();
 }
 

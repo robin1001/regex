@@ -14,6 +14,10 @@ Fsm::~Fsm() {
     reset();
 }
 
+Fsm::Fsm(const char *topo_file) {
+    read_topo(topo_file);
+}
+
 void Fsm::reset() {
     start_ = 0;
     for (int i = 0; i < states_.size(); i++) {
@@ -268,28 +272,11 @@ bool Fsm::run_nfa(const std::vector<int> &input) const {
     return is_finish(current_set);
 }
 
-// Provide hash fuction for std::set<int>
-namespace std {
-template <>
-class hash<std::set<int> > {
-public:
-    size_t operator()(const std::set<int> &t) const {
-        typedef std::set<int>::const_iterator SetIterator;
-        size_t sum = 0;
-        for (SetIterator it = t.begin(); it != t.end(); it++) {
-            sum += *it * 131;
-        }
-        return sum;
-        //return reinterpret_cast<size_t>(&t);
-    }
-};
-
-}
-
 void Fsm::determine(Fsm *fsm_out) const {
     assert(fsm_out != NULL);
     fsm_out->reset();
     //typedef std::unordered_map<std::set<int>, int>::const_iterator TableIterator;
+    //std::unordered_map<std::set<int>, int, SetIntHash<std::set<int> > > table;
     std::unordered_map<std::set<int>, int> table;
     std::set<int> current_set, tmp_set, next_set;
     tmp_set.insert(start_);
@@ -329,6 +316,132 @@ void Fsm::determine(Fsm *fsm_out) const {
     }
 }
 
-void minimize(Fsm *fsm_out) const {
+void Fsm::split_set_by_input(const std::set<int> &in_set, 
+                          int label, 
+                          std::unordered_set<std::set<int> > *out_sets) const {
+    assert(out_sets != NULL);
+    typedef std::unordered_map<int, std::set<int>>::const_iterator TableIterator;
+    std::unordered_map<int, std::set<int>> table;
+    out_sets->clear();
+    for (SetIterator it = in_set.begin(); it != in_set.end(); it++) {
+        State * state = states_[*it];
+        int dest_state = -1; // no next_state on this input
+        for (int k = 0; k < state->num_arcs(); k++) {
+            if (label == state->arcs[k].ilabel) {
+                dest_state = state->arcs[k].next_state;
+                break;
+            }
+        }
+        if (table.find(dest_state) == table.end()) {
+            table[dest_state] = std::set<int>();
+        }
+        table[dest_state].insert(*it);
+    }
+    for (TableIterator it = table.begin(); it != table.end(); it++) {
+        out_sets->insert(it->second);
+    }
+} 
+// If set1 is the subset of set0
+bool Fsm::is_subset(const std::set<int> &set0, const std::set<int> &set1) const {
+    for (SetIterator it = set1.begin(); it != set1.end(); it++) {
+        if (set0.find(*it) == set0.end()) {
+            return false;
+        }
+    }
+    return true;
 }
 
+void Fsm::minimize(Fsm *fsm_out) const {
+    assert(fsm_out != NULL);
+    typedef std::unordered_set<std::set<int> >::const_iterator SetSetIterator;
+    std::set<int> other_set;
+    std::unordered_set<std::set<int> > prev_sets, current_sets, split_sets;
+    for (int i = 0; i < states_.size(); i++) {
+        if (i != start_) {
+            other_set.insert(i);
+        }
+    }
+    current_sets.insert(other_set);
+    prev_sets = current_sets;
+
+    // Split into minimun sets
+    while (true) {
+        for (SetSetIterator it_i = prev_sets.begin(); it_i != prev_sets.end(); it_i++) {
+            if (1 == it_i->size()) continue; 
+            for (SetIterator it_j = label_sets_.begin(); it_j != label_sets_.end(); it_j++) {
+                split_sets.clear();
+                split_set_by_input(*it_i, *it_j, &split_sets); 
+                //std::cerr << "input set { ";
+                //for (SetIterator it_k = it_i->begin(); it_k != it_i->end(); it_k++) {
+                //    std::cerr << *it_k << " ";
+                //}
+                //std::cerr << "}\n";
+                //std::cerr << "split on label " << *it_j 
+                //          << " split into parts "  << split_sets.size() << "\n";
+                if (split_sets.size() > 1) { // can split into serveral parts
+                                        current_sets.erase(*it_i);
+                    current_sets.insert(split_sets.begin(), split_sets.end());
+                    break;
+                }
+            }
+        }
+        if (current_sets == prev_sets) 
+            break;
+        prev_sets = current_sets;
+    }
+    //std::cerr << "fsm minimize size " << current_sets.size() + 1 << "\n";
+
+    // Fsm out add state and set final state
+    int start = fsm_out->add_state();
+    fsm_out->set_start(start);
+    std::set<int> start_set;
+    std::unordered_map<std::set<int>, int> table;
+    typedef std::unordered_map<std::set<int>, int>::const_iterator TableIterator;
+    start_set.insert(start_); //
+    table.insert(std::make_pair(start_set, start));
+    for (SetSetIterator it = current_sets.begin(); it != current_sets.end(); it++) {
+        int state_id = fsm_out->add_state(); 
+        table[*it] = state_id;
+        if (is_finish(*it)) {
+            fsm_out->set_finish(state_id);
+        }
+    }
+    // Fsm and arc Infomation
+    std::set<int> out_set;
+    for (TableIterator it_i = table.begin(); it_i != table.end(); it_i++) {
+        for (SetIterator it_j = label_sets_.begin(); it_j != label_sets_.end(); it_j++) {
+            out_set.clear();
+            move(it_i->first, *it_j, &out_set);
+            //std::cerr << "input set { ";
+            //for (SetIterator it_k = it_i->first.begin(); it_k != it_i->first.end(); it_k++) {
+            //    std::cerr << *it_k << " ";
+            //}
+            //std::cerr << "} ";
+            //std::cerr << "out set on label " << *it_j << " { ";
+            //for (SetIterator it_k = out_set.begin(); it_k != out_set.end(); it_k++) {
+            //    std::cerr << *it_k << " ";
+            //}
+            //std::cerr << "}\n";
+            if (out_set.size() > 0) {
+                const std::set<int> *key_set = NULL;
+                // key In the table
+                if (table.find(out_set) != table.end()) {
+                   key_set = &out_set; 
+                }
+                // Not In the tabel, is subset of the one set in the tabel
+                else {
+                    for (TableIterator it_n = table.begin(); it_n != table.end(); it_n++) {
+                        if (is_subset(it_n->first, out_set)) {
+                            key_set = &it_n->first;
+                            break;
+                        }
+                    }
+                } 
+                assert(table.find(*key_set) != table.end());
+                int src_state = table[*key_set];
+                int dest_state = table[out_set];
+                fsm_out->add_arc(src_state, Arc(*it_j, dest_state));
+            }
+        }
+    }
+}
