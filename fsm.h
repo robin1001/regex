@@ -36,23 +36,26 @@ struct State {
 
 // Finite State Machine
 class Fsm {
+    typedef std::set<int>::const_iterator SetIterator;
 public:
-    Fsm(): start_(0), end_(0) {}
+
+    Fsm(): start_(0) {}
+    Fsm(const char *topo_file);
     ~Fsm(); 
     void reset();
     int start() const { 
         return start_; 
     }
-	int end() const {
-		return end_;
-	}
     void set_start(int id) {
 		assert(id < states_.size());
         start_ = id;
     }
-    void set_end(int id) {
+    void set_finish(int id) {
 		assert(id < states_.size());
-        end_ = id;
+        finish_set_.insert(id);
+    }
+    int num_finish() const {
+        return finish_set_.size();
     }
     int num_states() const {
         return states_.size();
@@ -73,15 +76,19 @@ public:
 	void read(const char *file); //read fsm from file
 	void write(const char *file) const; // write fsm to file
     void fsm_info () const; 
-    bool run_nfa(std::vector<int> &input) const;
+    bool run_nfa(const std::vector<int> &input) const;
     void determine(Fsm *fsm_out) const; 
-    void epsilon_closure(std::set<int> &in_set, 
+    void minimize(Fsm *fsm_out) const; 
+    void epsilon_closure(const std::set<int> &in_set, 
                          std::set<int> *out_set) const; 
-protected:
-    void step_epsilon(State *state, std::set<int> *list) const; 
+    void move(const std::set<int> &in_set, 
+              int label, 
+              std::set<int> *out_set) const; 
+    bool is_finish(const std::set<int> &t) const;
+    bool is_finish(int id) const;
 protected:
     int start_;
-    int end_;
+    std::set<int> finish_set_;
     std::vector<State *> states_;
     std::set<int> label_sets_;
 };

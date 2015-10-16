@@ -6,6 +6,7 @@
 
 #include <iostream>
 #include <queue>
+#include <unordered_map>
 
 #include "fsm.h"
 
@@ -14,7 +15,7 @@ Fsm::~Fsm() {
 }
 
 void Fsm::reset() {
-    start_ = end_ = 0;
+    start_ = 0;
     for (int i = 0; i < states_.size(); i++) {
         if (states_[i] != NULL) {
             delete states_[i];
@@ -22,6 +23,7 @@ void Fsm::reset() {
     }
     states_.clear();
     label_sets_.clear();
+    finish_set_.clear();
 }
 
 int Fsm::add_state() {
@@ -72,11 +74,11 @@ void Fsm::read_topo(const char *file) {
             }
         }
         else if (num == 1) {//final state
-            set_end(src);
-            break;
+            set_finish(src);
         }
         else {
-            mini_error("wrong line, expected src, dest, label"); 
+            break;
+            // mini_error("wrong line, expected src, dest, label"); 
         }
     }
     fclose(fp);
@@ -85,7 +87,8 @@ void Fsm::read_topo(const char *file) {
 
 /* 	fsm read write file format 
   	num_states(int) num_arcs(int)
-	start_(int) end_(int)
+	start_(int) 
+    finish_set_(int)
     label_set_ num_labels(int) [label1, label2, ...] 
 	every state's arcs info: num_arcs(int) {ilabel(int) next_state(int) ...}
 */
@@ -100,14 +103,19 @@ void Fsm::read(const char *file) {
     if (!fp) {
         mini_error("file %s not exist", file);
     }
-    int states_num, arcs_num;
+    int states_num, arcs_num, finish_num;
     int ilabel, next_state;
     fread(&states_num, sizeof(int), 1, fp);
     fread(&arcs_num, sizeof(int), 1, fp);
     fread(&start_, sizeof(int), 1, fp);
-    fread(&end_, sizeof(int), 1, fp);
+    fread(&finish_num, sizeof(int), 1, fp);
+    //std::cerr << finish_num;
     for (int i = 0; i < states_num; i++) {
         states_.push_back(new State());
+    }
+    for (int i = 0; i < finish_num; i++) {
+        fread(&next_state, sizeof(int), 1, fp);
+        finish_set_.insert(next_state);
     }
     for (int i = 0; i < states_num; i++) {
         int state_arcs = 0;
@@ -135,10 +143,14 @@ void Fsm::write(const char *file) const {
         fp = fopen(file, "wb");
     }
     int states_num = num_states(), arcs_num = num_arcs();
+    int finish_num = num_finish();
     fwrite(&states_num, sizeof(int), 1, fp);
     fwrite(&arcs_num, sizeof(int), 1, fp);
     fwrite(&start_, sizeof(int), 1, fp);
-    fwrite(&end_, sizeof(int), 1, fp);
+    fwrite(&finish_num, sizeof(int), 1, fp);
+    for (SetIterator it = finish_set_.begin(); it != finish_set_.end(); it++) {
+        fwrite(&(*it), sizeof(int), 1, fp);
+    }
     for (int i = 0; i < states_num; i++) {
         int state_arcs = states_[i]->num_arcs();
         fwrite(&state_arcs, sizeof(int), 1, fp);
@@ -158,7 +170,11 @@ void Fsm::fsm_info() const {
     fprintf(stderr, "num_states:\t%d\n", num_states()); 
     fprintf(stderr, "num_arcs:\t%d\n", num_states()); 
     fprintf(stderr, "start id:\t%d\n", start_); 
-    fprintf(stderr, "end id:\t%d\n", end_); 
+    fprintf(stderr, "finish set:\t%d { ", num_finish()); 
+    for (SetIterator it = finish_set_.begin(); it != finish_set_.end(); it++) {
+        fprintf(stderr, "%d ", *it); 
+    }
+    fprintf(stderr, "}\n");
     for (int i = 0; i < states_.size(); i++) {
         fprintf(stderr, "state %d arcs %d: { ", i, states_[i]->num_arcs());
         for (int j = 0; j < states_[i]->num_arcs(); j++) {
@@ -168,25 +184,24 @@ void Fsm::fsm_info() const {
         fprintf(stderr, "}\n");
     }
 }
-
-void Fsm::step_epsilon(State *state, std::set<int> *list) const {
-    for (int i = 0; i < state->num_arcs(); i++) {
-        if (0 == state->arcs[i].ilabel) {
-            int state_id = state->arcs[i].next_state;
-            assert(state_id < states_.size());
-            if (list->find(state_id) == list->end()) {
-                list->insert(state_id);
-                step_epsilon(states_[state_id], list);
-            }
+// if in_set contains any finish state
+bool Fsm::is_finish(const std::set<int> &in_set) const {
+    for (SetIterator it = in_set.begin(); it != in_set.end(); it++) {
+        if (is_finish(*it)) {
+            return true;
         }
     }
+    return false;
 }
 
-void Fsm::epsilon_closure(std::set<int> &in_set, std::set<int> *out_set) const {
-    typedef std::set<int>::const_iterator Iterator;
-    out_set->clear();
+bool Fsm::is_finish(int id) const {
+    return (finish_set_.find(id) != finish_set_.end());
+}
+
+void Fsm::epsilon_closure(const std::set<int> &in_set, 
+                          std::set<int> *out_set) const {
     std::queue<int> q;
-    for (Iterator it = in_set.begin(); it != in_set.end(); it++) {
+    for (SetIterator it = in_set.begin(); it != in_set.end(); it++) {
         q.push(*it);
         out_set->insert(*it);
     }
@@ -206,8 +221,22 @@ void Fsm::epsilon_closure(std::set<int> &in_set, std::set<int> *out_set) const {
     }
 }
 
-bool Fsm::run_nfa(std::vector<int> &input) const {
-    typedef std::set<int>::const_iterator Iterator;
+void Fsm::move(const std::set<int> &in_set, 
+               int label, 
+               std::set<int> *out_set) const {
+    assert(out_set != NULL);
+    for (SetIterator it = in_set.begin(); it != in_set.end(); it++) {
+        State *state = states_[*it];
+        for (int j = 0; j < state->num_arcs(); j++) {
+            if (label == state->arcs[j].ilabel) {
+                out_set->insert(state->arcs[j].next_state);
+            }
+        }
+    }
+}
+
+
+bool Fsm::run_nfa(const std::vector<int> &input) const {
     std::set<int> current_set, tmp_set, next_set;
     tmp_set.insert(start_);
     // Step epsilon, add it in current list
@@ -217,25 +246,17 @@ bool Fsm::run_nfa(std::vector<int> &input) const {
     // Simulate nfa
     for (int i = 0; i < input.size(); i++) { 
         // Loop all current state with input[i]
-        for (Iterator it = current_set.begin(); it != current_set.end(); it++) {
-            State *state = states_[*it];
-            for (int j = 0; j < state->num_arcs(); j++) {
-                if (input[i] == state->arcs[j].ilabel) {
-                    tmp_set.insert(state->arcs[j].next_state);
-                }
-            }
-        }
+        move(current_set, input[i], &tmp_set);
         /* next_set is epsilon the epsilon_closure of tmp_set
          * It can be implimented with recurrsive calls
          * We now impliment it with width first search for efficiency 
          */
         epsilon_closure(tmp_set, &next_set);
-
-        std::cerr << "next state set ";
-        for (Iterator it = next_set.begin(); it != next_set.end(); it++) {
-            std::cerr << *it << " ";
-        }
-        std::cerr << "\n";
+        //std::cerr << "next state set ";
+        //for (SetIterator it = next_set.begin(); it != next_set.end(); it++) {
+        //    std::cerr << *it << " ";
+        //}
+        //std::cerr << "\n";
 
         // Exchange current and next list
         current_set.swap(next_set);
@@ -244,13 +265,70 @@ bool Fsm::run_nfa(std::vector<int> &input) const {
         if (current_set.empty()) break;
     }
     // Judge whether end in the final current set
-    Iterator it = current_set.find(end_);
-    if (it != current_set.end()) return true;
-    else return false;
+    return is_finish(current_set);
 }
 
+// Provide hash fuction for std::set<int>
+namespace std {
+template <>
+class hash<std::set<int> > {
+public:
+    size_t operator()(const std::set<int> &t) const {
+        typedef std::set<int>::const_iterator SetIterator;
+        size_t sum = 0;
+        for (SetIterator it = t.begin(); it != t.end(); it++) {
+            sum += *it * 131;
+        }
+        return sum;
+        //return reinterpret_cast<size_t>(&t);
+    }
+};
+
+}
 
 void Fsm::determine(Fsm *fsm_out) const {
     assert(fsm_out != NULL);
     fsm_out->reset();
+    //typedef std::unordered_map<std::set<int>, int>::const_iterator TableIterator;
+    std::unordered_map<std::set<int>, int> table;
+    std::set<int> current_set, tmp_set, next_set;
+    tmp_set.insert(start_);
+    epsilon_closure(tmp_set, &current_set);
+    int start = fsm_out->add_state();
+    fsm_out->set_start(start);
+    if (is_finish(current_set)) fsm_out->set_finish(start);
+    table.insert(std::make_pair(current_set, start));
+    std::queue<std::set<int> > q;
+    q.push(current_set);
+
+    while (!q.empty()) {
+        current_set = q.front();
+        int src_state = table[current_set];
+        q.pop();
+        for (SetIterator it = label_sets_.begin(); it != label_sets_.end(); it++) {
+            tmp_set.clear();
+            next_set.clear();
+            // Move
+            move(current_set, *it, &tmp_set);
+            // Epsilon closure
+            epsilon_closure(tmp_set, &next_set);
+            if (!next_set.empty()) {
+                int dest_state = 0;
+                // New state
+                if (table.find(next_set) == table.end()) {
+                    dest_state = fsm_out->add_state();
+                    if (is_finish(next_set)) fsm_out->set_finish(dest_state);
+                    table.insert(std::make_pair(next_set, dest_state));
+                    q.push(next_set);
+                } else { // Not new, find it in table
+                    dest_state = table[next_set];
+                }
+                fsm_out->add_arc(src_state, Arc(*it, dest_state));
+            }
+        } // for iterator
+    }
 }
+
+void minimize(Fsm *fsm_out) const {
+}
+

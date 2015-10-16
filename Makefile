@@ -1,15 +1,13 @@
 CXX = g++
-CXXFLAGS = -g -Wall -W -Wno-sign-compare
+CXXFLAGS = -g -std=c++0x -Wall -W -Wno-sign-compare
 
-OBJ = fsm.o fsm-operation.o
+OBJ = fsm.o 
 BIN = fsm-info fsm-copy
 TEST_BIN = fsm-test
 
-all: $(BIN) 
+all: $(BIN) $(TEST_BIN)
 
 test: $(TEST_BIN)
-    
-run_test: test
 	@for x in $(TEST_BIN); do \
 		printf "Running $$x ..."; \
 		./$$x &> /dev/null; \
@@ -25,7 +23,6 @@ $(BIN): $(OBJ)
 $(TEST_BIN): $(OBJ)
 
 fsm.o: fsm.h utils.h
-fsm-operation: fsm.o fsm-operatoin.h
 
 .PHONY: clean
 clean:
