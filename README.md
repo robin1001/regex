@@ -2,4 +2,7 @@
 
 
 
-##
+## TODO
+* determine optimization
+* label_set optimization
+* fsm trim

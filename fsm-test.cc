@@ -29,12 +29,26 @@ public:
     void test_determine();
     void test_split_set_by_input();
     void test_minimize();
+    void test_memory();
     void test_all();
 };
 
 void FsmTest::test_all() {
     test_read_topo();
 
+}
+
+void FsmTest::test_memory() {
+    reset();
+    int start = add_state();
+    set_start(start);
+    for (int i = 1; i < 4096; i++) {
+        int next_state = add_state();
+        add_arc(start, Arc(i, next_state));
+    }
+    Fsm fsm_out;
+    determine(&fsm_out);
+    //minimize(&fsm_out);
 }
 
 void FsmTest::test_read_topo() {
@@ -190,6 +204,8 @@ int main() {
     fsm_test.test_split_set_by_input();
     // - Test fsm Minimize()
     fsm_test.test_minimize();
+    // - Test fsm memory if stack overflow on big state size
+    fsm_test.test_memory();
 
     return 0;
 }

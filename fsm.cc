@@ -368,8 +368,8 @@ void Fsm::minimize(Fsm *fsm_out) const {
                 other_set.insert(i);
             }
         }
+        current_sets.insert(other_set);
     }
-    current_sets.insert(other_set);
     prev_sets = current_sets;
 
     // Split into minimun sets
