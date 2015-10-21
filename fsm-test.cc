@@ -25,6 +25,7 @@ public:
     void test_read_topo(); 
     void test_move();
     void test_epsilon_closure(); 
+    void test_get_label_set();
     void test_run_nfa(); 
     void test_determine();
     void test_split_set_by_input();
@@ -42,10 +43,13 @@ void FsmTest::test_memory() {
     reset();
     int start = add_state();
     set_start(start);
-    for (int i = 1; i < 4096; i++) {
+    int num = 1024 * 20;
+    for (int i = 1; i < num; i++) {
         int next_state = add_state();
+        //add_arc(next_state-1, Arc(i, next_state));
         add_arc(start, Arc(i, next_state));
     }
+    set_final(num-1);
     Fsm fsm_out;
     determine(&fsm_out);
     //minimize(&fsm_out);
@@ -63,9 +67,8 @@ void FsmTest::test_read_topo() {
     read_topo(tmpfile);
 	assert(start() == 0);
 	assert(num_states() == 4);
-	assert(num_finish() == 2);
+	assert(num_final() == 2);
 	assert(num_arcs() == 4);
-    assert(num_labels() == 3);
     //fsm.write("tmp.fsm");
 }
 
@@ -100,6 +103,24 @@ void FsmTest::test_move() {
     ans_set.insert(1), ans_set.insert(2);
     move(in_set, 1, &out_set);
     assert(out_set == ans_set);
+}
+
+void FsmTest::test_get_label_set() {
+    const char *topo = "0 1 0\n"
+                 	   "0 2 0\n"
+                 	   "1 1 1\n"
+                 	   "2 2 1\n"
+                 	   "1 3 3\n"
+                 	   "2 3 0\n"
+                 	   "3\n";
+    const char *tmpfile = "tmp.topo";
+	write_tmp_file(tmpfile, topo);
+    read_topo(tmpfile);
+    std::set<int> in_set, label_set, ans_set;
+    in_set.insert(0), in_set.insert(1), in_set.insert(2);
+    ans_set.insert(1), ans_set.insert(3);
+    get_label_set(in_set, &label_set);
+    assert(label_set == ans_set);
 }
 
 void FsmTest::test_run_nfa() {
@@ -149,7 +170,7 @@ void FsmTest::test_determine() {
     //std::cerr << fsm_out.num_states() << "\n";
     assert(fsm_out.num_states() == 4);
     assert(fsm_out.num_arcs() == 8);
-    assert(fsm_out.num_finish() == 1);
+    assert(fsm_out.num_final() == 1);
     //fsm_out.fsm_info();
 }
 
@@ -191,19 +212,21 @@ void FsmTest::test_minimize() {
 int main() {
     // - Test read 
     FsmTest fsm_test;
-    fsm_test.test_read_topo();
-    // - Test epsilon_closure
-    fsm_test.test_epsilon_closure();
-    // - Test move
-    fsm_test.test_move(); 
-    // - Test run_nfa
-    fsm_test.test_run_nfa();
-    // - Test determine
-    fsm_test.test_determine();
-    // - Test split by input
-    fsm_test.test_split_set_by_input();
-    // - Test fsm Minimize()
-    fsm_test.test_minimize();
+    //fsm_test.test_read_topo();
+    //// - Test epsilon_closure
+    //fsm_test.test_epsilon_closure();
+    //// - Test move
+    //fsm_test.test_move(); 
+    //// - Test move
+    //fsm_test.test_get_label_set(); 
+    //// - Test run_nfa
+    //fsm_test.test_run_nfa();
+    //// - Test determine
+    //fsm_test.test_determine();
+    //// - Test split by input
+    //fsm_test.test_split_set_by_input();
+    //// - Test fsm Minimize()
+    //fsm_test.test_minimize();
     // - Test fsm memory if stack overflow on big state size
     fsm_test.test_memory();
 

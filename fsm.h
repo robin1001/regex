@@ -37,7 +37,7 @@ struct State {
 
 // Finite State Machine
 class Fsm {
-    typedef std::set<int>::const_iterator SetIterator;
+    typedef std::set<int>::iterator SetIterator;
 public:
 
     Fsm(): start_(0) {}
@@ -51,12 +51,12 @@ public:
 		assert(id < states_.size());
         start_ = id;
     }
-    void set_finish(int id) {
+    void set_final(int id) {
 		assert(id < states_.size());
-        finish_set_.insert(id);
+        final_set_.insert(id);
     }
-    int num_finish() const {
-        return finish_set_.size();
+    int num_final() const {
+        return final_set_.size();
     }
     int num_states() const {
         return states_.size();
@@ -68,9 +68,7 @@ public:
 		}
 		return count;
     }
-    int num_labels() const {
-        return label_sets_.size();
-    }
+
     int add_state();
     void add_arc(int id, const Arc &arc);
     void read_topo(const char *file);
@@ -80,8 +78,8 @@ public:
     bool run_nfa(const std::vector<int> &input) const;
     void determine(Fsm *fsm_out) const; 
     void minimize(Fsm *fsm_out) const; 
-    bool is_finish(const std::set<int> &t) const;
-    bool is_finish(int id) const;
+    bool is_final(const std::set<int> &t) const;
+    bool is_final(int id) const;
 protected:
     void epsilon_closure(const std::set<int> &in_set, 
                          std::set<int> *out_set) const; 
@@ -92,12 +90,13 @@ protected:
               int label, 
               std::set<int> *out_set) const; 
     bool is_subset(const std::set<int> &set0, const std::set<int> &set1) const;
+    void get_label_set(const std::set<int> &state_set, 
+                        std::set<int> *label_set) const;
 
 protected:
     int start_;
-    std::set<int> finish_set_;
+    std::set<int> final_set_;
     std::vector<State *> states_;
-    std::set<int> label_sets_;
 };
 
 #endif

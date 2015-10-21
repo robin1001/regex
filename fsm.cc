@@ -26,8 +26,7 @@ void Fsm::reset() {
         }
     }
     states_.clear();
-    label_sets_.clear();
-    finish_set_.clear();
+    final_set_.clear();
 }
 
 int Fsm::add_state() {
@@ -46,7 +45,6 @@ void Fsm::add_arc(int id, const Arc &arc) {
     }
 	assert(id < states_.size());
 	states_[id]->add_arc(arc);
-    if (arc.ilabel != 0) label_sets_.insert(arc.ilabel);
 }
 
 
@@ -72,7 +70,6 @@ void Fsm::read_topo(const char *file) {
         int num = sscanf(buffer, "%d %d %d", &src, &dest, &label);
 		//mini_log("read arc %d %d %d", src, dest, label);
         if (num == 3) {
-            if (label != 0) label_sets_.insert(label);
 			add_arc(src, Arc(label, dest));	
             if (first_line) {
                 set_start(src);
@@ -80,7 +77,7 @@ void Fsm::read_topo(const char *file) {
             }
         }
         else if (num == 1) {//final state
-            set_finish(src);
+            set_final(src);
         }
         else {
             break;
@@ -94,8 +91,7 @@ void Fsm::read_topo(const char *file) {
 /* 	fsm read write file format 
   	num_states(int) num_arcs(int)
 	start_(int) 
-    finish_set_(int)
-    label_set_ num_labels(int) [label1, label2, ...] 
+    final_set_(int)
 	every state's arcs info: num_arcs(int) {ilabel(int) next_state(int) ...}
 */
 void Fsm::read(const char *file) {
@@ -110,19 +106,19 @@ void Fsm::read(const char *file) {
     if (!fp) {
         mini_error("file %s not exist", file);
     }
-    int states_num, arcs_num, finish_num;
+    int states_num, arcs_num, final_num;
     int ilabel, next_state;
     fread(&states_num, sizeof(int), 1, fp);
     fread(&arcs_num, sizeof(int), 1, fp);
     fread(&start_, sizeof(int), 1, fp);
-    fread(&finish_num, sizeof(int), 1, fp);
-    //std::cerr << finish_num;
+    fread(&final_num, sizeof(int), 1, fp);
+    //std::cerr << final_num;
     for (int i = 0; i < states_num; i++) {
         states_.push_back(new State());
     }
-    for (int i = 0; i < finish_num; i++) {
+    for (int i = 0; i < final_num; i++) {
         fread(&next_state, sizeof(int), 1, fp);
-        finish_set_.insert(next_state);
+        final_set_.insert(next_state);
     }
     for (int i = 0; i < states_num; i++) {
         int state_arcs = 0;
@@ -130,7 +126,6 @@ void Fsm::read(const char *file) {
         for (int j = 0; j < state_arcs; j++) {
             fread(&ilabel, sizeof(int), 1, fp);
             fread(&next_state, sizeof(int), 1, fp);
-            if (ilabel != 0) label_sets_.insert(ilabel);
             states_[i]->add_arc(Arc(ilabel, next_state));
         }
     }
@@ -151,12 +146,12 @@ void Fsm::write(const char *file) const {
         fp = fopen(file, "wb");
     }
     int states_num = num_states(), arcs_num = num_arcs();
-    int finish_num = num_finish();
+    int final_num = num_final();
     fwrite(&states_num, sizeof(int), 1, fp);
     fwrite(&arcs_num, sizeof(int), 1, fp);
     fwrite(&start_, sizeof(int), 1, fp);
-    fwrite(&finish_num, sizeof(int), 1, fp);
-    for (SetIterator it = finish_set_.begin(); it != finish_set_.end(); it++) {
+    fwrite(&final_num, sizeof(int), 1, fp);
+    for (SetIterator it = final_set_.begin(); it != final_set_.end(); it++) {
         fwrite(&(*it), sizeof(int), 1, fp);
     }
     for (int i = 0; i < states_num; i++) {
@@ -178,8 +173,8 @@ void Fsm::fsm_info() const {
     fprintf(stderr, "num_states:\t%d\n", num_states()); 
     fprintf(stderr, "num_arcs:\t%d\n", num_states()); 
     fprintf(stderr, "start id:\t%d\n", start_); 
-    fprintf(stderr, "finish set:\t%d { ", num_finish()); 
-    for (SetIterator it = finish_set_.begin(); it != finish_set_.end(); it++) {
+    fprintf(stderr, "final set:\t%d { ", num_final()); 
+    for (SetIterator it = final_set_.begin(); it != final_set_.end(); it++) {
         fprintf(stderr, "%d ", *it); 
     }
     fprintf(stderr, "}\n");
@@ -192,23 +187,24 @@ void Fsm::fsm_info() const {
         fprintf(stderr, "}\n");
     }
 }
-// if in_set contains any finish state
-bool Fsm::is_finish(const std::set<int> &in_set) const {
+// if in_set contains any final state
+bool Fsm::is_final(const std::set<int> &in_set) const {
     for (SetIterator it = in_set.begin(); it != in_set.end(); it++) {
-        if (is_finish(*it)) {
+        if (is_final(*it)) {
             return true;
         }
     }
     return false;
 }
 
-bool Fsm::is_finish(int id) const {
-    return (finish_set_.find(id) != finish_set_.end());
+bool Fsm::is_final(int id) const {
+    return (final_set_.find(id) != final_set_.end());
 }
 
 void Fsm::epsilon_closure(const std::set<int> &in_set, 
                           std::set<int> *out_set) const {
     assert(out_set != NULL);
+    out_set->clear();
     std::queue<int> q;
     for (SetIterator it = in_set.begin(); it != in_set.end(); it++) {
         q.push(*it);
@@ -234,6 +230,7 @@ void Fsm::move(const std::set<int> &in_set,
                int label, 
                std::set<int> *out_set) const {
     assert(out_set != NULL);
+    out_set->clear();
     for (SetIterator it = in_set.begin(); it != in_set.end(); it++) {
         State *state = states_[*it];
         for (int j = 0; j < state->num_arcs(); j++) {
@@ -244,6 +241,19 @@ void Fsm::move(const std::set<int> &in_set,
     }
 }
 
+void Fsm::get_label_set(const std::set<int> &state_set, 
+                        std::set<int> *label_set) const {
+    assert(label_set != NULL);
+    label_set->clear();
+    for (SetIterator it = state_set.begin(); it != state_set.end(); it++) {
+        State *state = states_[*it];
+        for (int j = 0; j < state->num_arcs(); j++) {
+            if (state->arcs[j].ilabel != 0) {
+                label_set->insert(state->arcs[j].ilabel);
+            }
+        }
+    }
+}
 
 bool Fsm::run_nfa(const std::vector<int> &input) const {
     std::set<int> current_set, tmp_set, next_set;
@@ -269,49 +279,51 @@ bool Fsm::run_nfa(const std::vector<int> &input) const {
 
         // Exchange current and next list
         current_set.swap(next_set);
-        next_set.clear();
-        tmp_set.clear();
         if (current_set.empty()) break;
     }
     // Judge whether end in the final current set
-    return is_finish(current_set);
+    return is_final(current_set);
 }
 
 void Fsm::determine(Fsm *fsm_out) const {
     assert(fsm_out != NULL);
     fsm_out->reset();
-    //typedef std::unordered_map<std::set<int>, int>::const_iterator TableIterator;
     //std::unordered_map<std::set<int>, int, SetIntHash<std::set<int> > > table;
+    typedef std::unordered_map<std::set<int>, int>::iterator TableIterator;
     std::unordered_map<std::set<int>, int> table;
     std::set<int> current_set, tmp_set, next_set;
+    std::set<int> label_set;
     tmp_set.insert(start_);
     epsilon_closure(tmp_set, &current_set);
     int start = fsm_out->add_state();
     fsm_out->set_start(start);
-    if (is_finish(current_set)) fsm_out->set_finish(start);
-    table.insert(std::make_pair(current_set, start));
-    std::queue<std::set<int> > q;
-    q.push(current_set);
+    if (is_final(current_set)) fsm_out->set_final(start);
+    TableIterator iter = table.begin();
+    iter = table.insert(iter, std::make_pair(current_set, start));
+    //std::pair<TableIterator, bool> iter = table.insert(std::make_pair(current_set, start));
+    std::queue<TableIterator > q;
+    q.push(iter); //second is bool
 
     while (!q.empty()) {
-        current_set = q.front();
-        int src_state = table[current_set];
+        TableIterator iter_q = q.front();
+        int src_state = iter_q->second;
         q.pop();
-        for (SetIterator it = label_sets_.begin(); it != label_sets_.end(); it++) {
-            tmp_set.clear();
-            next_set.clear();
+        // Get all labels of current_set 
+        get_label_set(iter_q->first, &label_set);
+        for (SetIterator it = label_set.begin(); it != label_set.end(); it++) {
             // Move
             move(current_set, *it, &tmp_set);
             // Epsilon closure
             epsilon_closure(tmp_set, &next_set);
+
             if (!next_set.empty()) {
                 int dest_state = 0;
                 // New state
                 if (table.find(next_set) == table.end()) {
                     dest_state = fsm_out->add_state();
-                    if (is_finish(next_set)) fsm_out->set_finish(dest_state);
-                    table.insert(std::make_pair(next_set, dest_state));
-                    q.push(next_set);
+                    if (is_final(next_set)) fsm_out->set_final(dest_state);
+                    iter = table.insert(iter, std::make_pair(next_set, dest_state));
+                    q.push(iter);
                 } else { // Not new, find it in table
                     dest_state = table[next_set];
                 }
@@ -321,13 +333,18 @@ void Fsm::determine(Fsm *fsm_out) const {
     }
 }
 
+/* Split set by input label i according to the next_state
+ *    src   dest   label  
+ * eg   1   2       a; 2 3 a; 4 2 a;
+ * then on label a, src states can split input two sets {1, 4} {2}
+ */
 void Fsm::split_set_by_input(const std::set<int> &in_set, 
                           int label, 
                           std::unordered_set<std::set<int> > *out_sets) const {
     assert(out_sets != NULL);
+    out_sets->clear();
     typedef std::unordered_map<int, std::set<int>>::const_iterator TableIterator;
     std::unordered_map<int, std::set<int>> table;
-    out_sets->clear();
     for (SetIterator it = in_set.begin(); it != in_set.end(); it++) {
         State * state = states_[*it];
         int dest_state = -1; // no next_state on this input
@@ -360,6 +377,7 @@ void Fsm::minimize(Fsm *fsm_out) const {
     assert(fsm_out != NULL);
     typedef std::unordered_set<std::set<int> >::const_iterator SetSetIterator;
     std::unordered_set<std::set<int> > prev_sets, current_sets, split_sets;
+    std::set<int> label_set;
     // Split into two sets, start and none start states
     {
         std::set<int> other_set;
@@ -376,8 +394,8 @@ void Fsm::minimize(Fsm *fsm_out) const {
     while (true) {
         for (SetSetIterator it_i = prev_sets.begin(); it_i != prev_sets.end(); it_i++) {
             if (1 == it_i->size()) continue; 
-            for (SetIterator it_j = label_sets_.begin(); it_j != label_sets_.end(); it_j++) {
-                split_sets.clear();
+            get_label_set(*it_i, &label_set);
+            for (SetIterator it_j = label_set.begin(); it_j != label_set.end(); it_j++) {
                 split_set_by_input(*it_i, *it_j, &split_sets); 
                 //std::cerr << "input set { ";
                 //for (SetIterator it_k = it_i->begin(); it_k != it_i->end(); it_k++) {
@@ -393,6 +411,7 @@ void Fsm::minimize(Fsm *fsm_out) const {
                 }
             }
         }
+        //if (current_sets.size() == prev_sets.size()) 
         if (current_sets == prev_sets) 
             break;
         prev_sets = current_sets;
@@ -410,14 +429,15 @@ void Fsm::minimize(Fsm *fsm_out) const {
     for (SetSetIterator it = current_sets.begin(); it != current_sets.end(); it++) {
         int state_id = fsm_out->add_state(); 
         table[*it] = state_id;
-        if (is_finish(*it)) {
-            fsm_out->set_finish(state_id);
+        if (is_final(*it)) {
+            fsm_out->set_final(state_id);
         }
     }
-    // Fsm and arc Infomation
+    // Fsm and arc Information
     std::set<int> out_set;
     for (TableIterator it_i = table.begin(); it_i != table.end(); it_i++) {
-        for (SetIterator it_j = label_sets_.begin(); it_j != label_sets_.end(); it_j++) {
+        get_label_set(it_i->first, &label_set);
+        for (SetIterator it_j = label_set.begin(); it_j != label_set.end(); it_j++) {
             out_set.clear();
             move(it_i->first, *it_j, &out_set);
             //std::cerr << "input set { ";
@@ -449,6 +469,7 @@ void Fsm::minimize(Fsm *fsm_out) const {
                 int src_state = table[*key_set];
                 int dest_state = table[out_set];
                 fsm_out->add_arc(src_state, Arc(*it_j, dest_state));
+                //std::cerr << "add arc " << src_state << " " << dest_state << " " << *it_j << "\n";
             }
         }
     }
