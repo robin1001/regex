@@ -10,6 +10,7 @@
 #include <vector>
 #include <set>
 #include <unordered_set>
+#include <unordered_map>
 
 #include "utils.h"
 
@@ -37,7 +38,12 @@ struct State {
 
 // Finite State Machine
 class Fsm {
+public:
     typedef std::set<int>::iterator SetIterator;
+    typedef std::unordered_map<std::set<int>, int, SetIntHash, SetIntEqual> HashTable;
+    typedef HashTable::iterator TableIterator;
+    typedef std::unordered_set<std::set<int>, SetIntHash, SetIntEqual> HashSet;
+    typedef HashSet::iterator SetSetIterator;
 public:
 
     Fsm(): start_(0) {}
@@ -85,7 +91,7 @@ protected:
                          std::set<int> *out_set) const; 
     void split_set_by_input(const std::set<int> &in_set, 
                             int label, 
-                            std::unordered_set<std::set<int> > *out_sets) const ; 
+                            HashSet *out_sets) const;
     void move(const std::set<int> &in_set, 
               int label, 
               std::set<int> *out_set) const; 

@@ -184,7 +184,9 @@ void FsmTest::test_split_set_by_input() {
 	write_tmp_file(tmpfile, topo);
     read_topo(tmpfile);
     std::set<int> in_set;
-    std::unordered_set<std::set<int> > out_sets; 
+    
+    HashSet out_sets; 
+    //std::unordered_set<std::set<int> > out_sets; 
     in_set.insert(1), in_set.insert(2), in_set.insert(3);
     split_set_by_input(in_set, 1, &out_sets);
     assert(out_sets.size() == 1);

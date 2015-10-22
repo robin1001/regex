@@ -288,11 +288,8 @@ bool Fsm::run_nfa(const std::vector<int> &input) const {
 void Fsm::determine(Fsm *fsm_out) const {
     assert(fsm_out != NULL);
     fsm_out->reset();
-    //std::unordered_map<std::set<int>, int, SetIntHash<std::set<int> > > table;
-    typedef std::unordered_map<std::set<int>, int>::iterator TableIterator;
-    std::unordered_map<std::set<int>, int> table;
+    HashTable table;
     std::set<int> current_set, tmp_set, next_set;
-    std::set<int> label_set;
     tmp_set.insert(start_);
     epsilon_closure(tmp_set, &current_set);
     int start = fsm_out->add_state();
@@ -303,33 +300,51 @@ void Fsm::determine(Fsm *fsm_out) const {
     //std::pair<TableIterator, bool> iter = table.insert(std::make_pair(current_set, start));
     std::queue<TableIterator > q;
     q.push(iter); //second is bool
+    std::unordered_map<int, std::set<int> > move_table;
 
     while (!q.empty()) {
         TableIterator iter_q = q.front();
-        int src_state = iter_q->second;
         q.pop();
-        // Get all labels of current_set 
-        get_label_set(iter_q->first, &label_set);
-        for (SetIterator it = label_set.begin(); it != label_set.end(); it++) {
-            // Move
-            move(current_set, *it, &tmp_set);
-            // Epsilon closure
-            epsilon_closure(tmp_set, &next_set);
-
-            if (!next_set.empty()) {
-                int dest_state = 0;
-                // New state
-                if (table.find(next_set) == table.end()) {
-                    dest_state = fsm_out->add_state();
-                    if (is_final(next_set)) fsm_out->set_final(dest_state);
-                    iter = table.insert(iter, std::make_pair(next_set, dest_state));
-                    q.push(iter);
-                } else { // Not new, find it in table
-                    dest_state = table[next_set];
+        current_set = iter_q->first;
+        int src_state = iter_q->second;
+        move_table.clear();
+        // Move on each label;
+        //std::cerr << "current set { ";
+        for (SetIterator it = current_set.begin(); it != current_set.end(); it++) {
+            //std::cerr << *it << " ";
+            State *state = states_[*it];
+            for (int i = 0; i < state->num_arcs(); i++) {
+                int label = state->arcs[i].ilabel;
+                int next_state =  state->arcs[i].next_state;
+                if (label == 0) continue;
+                if (move_table.find(label) == move_table.end()) {//new label in map
+                    move_table.insert(std::make_pair(label, std::set<int>()));
                 }
-                fsm_out->add_arc(src_state, Arc(*it, dest_state));
+                move_table[label].insert(next_state);
             }
-        } // for iterator
+        }
+        //std::cerr << "}\n";
+        // Epsilon closure
+        int dest_state = 0;
+        std::unordered_map<int, std::set<int> >::iterator it = move_table.begin();
+        for (; it != move_table.end(); it++) {
+            epsilon_closure(it->second, &next_set); 
+            if (table.find(next_set) == table.end()) {
+                dest_state = fsm_out->add_state();
+                if (is_final(next_set)) fsm_out->set_final(dest_state);
+                iter = table.insert(iter, std::make_pair(next_set, dest_state));
+                q.push(iter);
+            }
+            else {
+                dest_state = table[next_set];
+            }
+            //std::cerr << "\ton label " << it->first << " turn to next set { ";
+            //for (SetIterator ip = next_set.begin(); ip != next_set.end(); ip++) {
+            //    std::cerr << *ip << " ";
+            //}
+            //std::cerr << "}\n";
+            fsm_out->add_arc(src_state, Arc(it->first, dest_state));
+        }
     }
 }
 
@@ -340,7 +355,7 @@ void Fsm::determine(Fsm *fsm_out) const {
  */
 void Fsm::split_set_by_input(const std::set<int> &in_set, 
                           int label, 
-                          std::unordered_set<std::set<int> > *out_sets) const {
+                          HashSet *out_sets) const {
     assert(out_sets != NULL);
     out_sets->clear();
     typedef std::unordered_map<int, std::set<int>>::const_iterator TableIterator;
@@ -363,6 +378,7 @@ void Fsm::split_set_by_input(const std::set<int> &in_set,
         out_sets->insert(it->second);
     }
 } 
+
 // If set1 is the subset of set0
 bool Fsm::is_subset(const std::set<int> &set0, const std::set<int> &set1) const {
     for (SetIterator it = set1.begin(); it != set1.end(); it++) {
@@ -375,8 +391,8 @@ bool Fsm::is_subset(const std::set<int> &set0, const std::set<int> &set1) const 
 
 void Fsm::minimize(Fsm *fsm_out) const {
     assert(fsm_out != NULL);
-    typedef std::unordered_set<std::set<int> >::const_iterator SetSetIterator;
-    std::unordered_set<std::set<int> > prev_sets, current_sets, split_sets;
+    HashSet prev_sets, current_sets, split_sets;
+
     std::set<int> label_set;
     // Split into two sets, start and none start states
     {
@@ -411,8 +427,8 @@ void Fsm::minimize(Fsm *fsm_out) const {
                 }
             }
         }
-        //if (current_sets.size() == prev_sets.size()) 
-        if (current_sets == prev_sets) 
+        //if (current_sets == prev_sets) 
+        if (current_sets.size() == prev_sets.size()) 
             break;
         prev_sets = current_sets;
     }
@@ -421,8 +437,7 @@ void Fsm::minimize(Fsm *fsm_out) const {
     // Fsm out add state and set final state
     int start = fsm_out->add_state();
     fsm_out->set_start(start);
-    std::unordered_map<std::set<int>, int> table;
-    typedef std::unordered_map<std::set<int>, int>::const_iterator TableIterator;
+    HashTable table;
     std::set<int> start_set;
     start_set.insert(start_); //
     table.insert(std::make_pair(start_set, start));

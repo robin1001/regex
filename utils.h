@@ -27,7 +27,6 @@ do { \
     exit(-1); \
 } while(0)
 
-
 // Provide hash fuction for std::set<int>
 namespace std {
 template <>
@@ -45,24 +44,32 @@ public:
 };
 }
 
-// For std::<int> hash test, it works
-//template <class T> 
-//class SetIntHash {
-//};
-//
-//template <>
-//class SetIntHash<std::set<int> > {
-//public:
-//    size_t operator()(const std::set<int> &t) const {
-//        typedef std::set<int>::const_iterator SetIterator;
-//        size_t sum = 0;
-//        for (SetIterator it = t.begin(); it != t.end(); it++) {
-//            sum += *it * 131;
-//        }
-//        return sum;
-//        //return reinterpret_cast<size_t>(&t);
-//    }
-//};
+
+class SetIntHash {
+public:
+    size_t operator()(const std::set<int> &t) const {
+        typedef std::set<int>::const_iterator SetIterator;
+        size_t sum = 0;
+        for (SetIterator it = t.begin(); it != t.end(); it++) {
+            sum += *it * 131;
+        }
+        return sum;
+        //return reinterpret_cast<size_t>(&t);
+    }
+};
+
+class SetIntEqual {
+public:
+    bool operator() (const std::set<int> &s1, const std::set<int> &s2) const {
+        typedef std::set<int>::const_iterator SetIterator;
+        if (s1.size() != s2.size()) return false;
+        SetIterator iter1 = s1.begin(), iter2 = s2.begin();
+        for (; iter1 != s1.end(); iter1++, iter2++) {
+            if (*iter1 != *iter2) return false;
+        }
+        return true;
+    }
+};
 
 #endif
 

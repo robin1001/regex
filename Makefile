@@ -1,5 +1,6 @@
 CXX = g++
 CXXFLAGS = -g -std=c++0x -Wall -W -Wno-sign-compare -pg
+#CXXFLAGS = -g -std=c++0x -Wall -W -Wno-sign-compare 
 
 OBJ = fsm.o 
 BIN = fsm-info fsm-copy
