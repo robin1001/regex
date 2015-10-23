@@ -151,7 +151,7 @@ void Fsm::write(const char *file) const {
     fwrite(&arcs_num, sizeof(int), 1, fp);
     fwrite(&start_, sizeof(int), 1, fp);
     fwrite(&final_num, sizeof(int), 1, fp);
-    for (SetIterator it = final_set_.begin(); it != final_set_.end(); it++) {
+    for (SetIter it = final_set_.begin(); it != final_set_.end(); it++) {
         fwrite(&(*it), sizeof(int), 1, fp);
     }
     for (int i = 0; i < states_num; i++) {
@@ -174,7 +174,7 @@ void Fsm::fsm_info() const {
     fprintf(stderr, "num_arcs:\t%d\n", num_states()); 
     fprintf(stderr, "start id:\t%d\n", start_); 
     fprintf(stderr, "final set:\t%d { ", num_final()); 
-    for (SetIterator it = final_set_.begin(); it != final_set_.end(); it++) {
+    for (SetIter it = final_set_.begin(); it != final_set_.end(); it++) {
         fprintf(stderr, "%d ", *it); 
     }
     fprintf(stderr, "}\n");
@@ -188,8 +188,8 @@ void Fsm::fsm_info() const {
     }
 }
 // if in_set contains any final state
-bool Fsm::is_final(const std::set<int> &in_set) const {
-    for (SetIterator it = in_set.begin(); it != in_set.end(); it++) {
+bool Fsm::is_final(const Set &in_set) const {
+    for (SetIter it = in_set.begin(); it != in_set.end(); it++) {
         if (is_final(*it)) {
             return true;
         }
@@ -201,12 +201,12 @@ bool Fsm::is_final(int id) const {
     return (final_set_.find(id) != final_set_.end());
 }
 
-void Fsm::epsilon_closure(const std::set<int> &in_set, 
-                          std::set<int> *out_set) const {
+void Fsm::epsilon_closure(const Set &in_set, 
+                          Set *out_set) const {
     assert(out_set != NULL);
     out_set->clear();
     std::queue<int> q;
-    for (SetIterator it = in_set.begin(); it != in_set.end(); it++) {
+    for (SetIter it = in_set.begin(); it != in_set.end(); it++) {
         q.push(*it);
         out_set->insert(*it);
     }
@@ -226,12 +226,12 @@ void Fsm::epsilon_closure(const std::set<int> &in_set,
     }
 }
 
-void Fsm::move(const std::set<int> &in_set, 
+void Fsm::move(const Set &in_set, 
                int label, 
-               std::set<int> *out_set) const {
+               Set *out_set) const {
     assert(out_set != NULL);
     out_set->clear();
-    for (SetIterator it = in_set.begin(); it != in_set.end(); it++) {
+    for (SetIter it = in_set.begin(); it != in_set.end(); it++) {
         State *state = states_[*it];
         for (int j = 0; j < state->num_arcs(); j++) {
             if (label == state->arcs[j].ilabel) {
@@ -241,11 +241,11 @@ void Fsm::move(const std::set<int> &in_set,
     }
 }
 
-void Fsm::get_label_set(const std::set<int> &state_set, 
-                        std::set<int> *label_set) const {
+void Fsm::get_label_set(const Set &state_set, 
+                        Set *label_set) const {
     assert(label_set != NULL);
     label_set->clear();
-    for (SetIterator it = state_set.begin(); it != state_set.end(); it++) {
+    for (SetIter it = state_set.begin(); it != state_set.end(); it++) {
         State *state = states_[*it];
         for (int j = 0; j < state->num_arcs(); j++) {
             if (state->arcs[j].ilabel != 0) {
@@ -256,7 +256,7 @@ void Fsm::get_label_set(const std::set<int> &state_set,
 }
 
 bool Fsm::run_nfa(const std::vector<int> &input) const {
-    std::set<int> current_set, tmp_set, next_set;
+    Set current_set, tmp_set, next_set;
     tmp_set.insert(start_);
     // Step epsilon, add it in current list
     epsilon_closure(tmp_set, &current_set);
@@ -272,7 +272,7 @@ bool Fsm::run_nfa(const std::vector<int> &input) const {
          */
         epsilon_closure(tmp_set, &next_set);
         //std::cerr << "next state set ";
-        //for (SetIterator it = next_set.begin(); it != next_set.end(); it++) {
+        //for (SetIter it = next_set.begin(); it != next_set.end(); it++) {
         //    std::cerr << *it << " ";
         //}
         //std::cerr << "\n";
@@ -288,29 +288,29 @@ bool Fsm::run_nfa(const std::vector<int> &input) const {
 void Fsm::determine(Fsm *fsm_out) const {
     assert(fsm_out != NULL);
     fsm_out->reset();
-    HashTable table;
-    std::set<int> current_set, tmp_set, next_set;
+    SetTable table;
+    Set current_set, tmp_set, next_set;
     tmp_set.insert(start_);
     epsilon_closure(tmp_set, &current_set);
     int start = fsm_out->add_state();
     fsm_out->set_start(start);
     if (is_final(current_set)) fsm_out->set_final(start);
-    TableIterator iter = table.begin();
+    SetTableIter iter = table.begin();
     iter = table.insert(iter, std::make_pair(current_set, start));
-    //std::pair<TableIterator, bool> iter = table.insert(std::make_pair(current_set, start));
-    std::queue<TableIterator > q;
+    //std::pair<SetTableIter, bool> iter = table.insert(std::make_pair(current_set, start));
+    std::queue<SetTableIter > q;
     q.push(iter); //second is bool
-    std::unordered_map<int, std::set<int> > move_table;
+    std::unordered_map<int, Set > move_table;
 
     while (!q.empty()) {
-        TableIterator iter_q = q.front();
+        SetTableIter iter_q = q.front();
         q.pop();
         current_set = iter_q->first;
         int src_state = iter_q->second;
         move_table.clear();
         // Move on each label;
         //std::cerr << "current set { ";
-        for (SetIterator it = current_set.begin(); it != current_set.end(); it++) {
+        for (SetIter it = current_set.begin(); it != current_set.end(); it++) {
             //std::cerr << *it << " ";
             State *state = states_[*it];
             for (int i = 0; i < state->num_arcs(); i++) {
@@ -318,7 +318,7 @@ void Fsm::determine(Fsm *fsm_out) const {
                 int next_state =  state->arcs[i].next_state;
                 if (label == 0) continue;
                 if (move_table.find(label) == move_table.end()) {//new label in map
-                    move_table.insert(std::make_pair(label, std::set<int>()));
+                    move_table.insert(std::make_pair(label, Set()));
                 }
                 move_table[label].insert(next_state);
             }
@@ -326,7 +326,7 @@ void Fsm::determine(Fsm *fsm_out) const {
         //std::cerr << "}\n";
         // Epsilon closure
         int dest_state = 0;
-        std::unordered_map<int, std::set<int> >::iterator it = move_table.begin();
+        std::unordered_map<int, Set>::iterator it = move_table.begin();
         for (; it != move_table.end(); it++) {
             epsilon_closure(it->second, &next_set); 
             if (table.find(next_set) == table.end()) {
@@ -339,7 +339,7 @@ void Fsm::determine(Fsm *fsm_out) const {
                 dest_state = table[next_set];
             }
             //std::cerr << "\ton label " << it->first << " turn to next set { ";
-            //for (SetIterator ip = next_set.begin(); ip != next_set.end(); ip++) {
+            //for (SetIter ip = next_set.begin(); ip != next_set.end(); ip++) {
             //    std::cerr << *ip << " ";
             //}
             //std::cerr << "}\n";
@@ -353,14 +353,14 @@ void Fsm::determine(Fsm *fsm_out) const {
  * eg   1   2       a; 2 3 a; 4 2 a;
  * then on label a, src states can split input two sets {1, 4} {2}
  */
-void Fsm::split_set_by_input(const std::set<int> &in_set, 
+void Fsm::split_set_by_input(const Set &in_set, 
                           int label, 
-                          HashSet *out_sets) const {
+                          SetSet *out_sets) const {
     assert(out_sets != NULL);
     out_sets->clear();
-    typedef std::unordered_map<int, std::set<int>>::const_iterator TableIterator;
-    std::unordered_map<int, std::set<int>> table;
-    for (SetIterator it = in_set.begin(); it != in_set.end(); it++) {
+    typedef std::unordered_map<int, Set>::const_iterator SetTableIter;
+    std::unordered_map<int, Set> table;
+    for (SetIter it = in_set.begin(); it != in_set.end(); it++) {
         State * state = states_[*it];
         int dest_state = -1; // no next_state on this input
         for (int k = 0; k < state->num_arcs(); k++) {
@@ -370,11 +370,11 @@ void Fsm::split_set_by_input(const std::set<int> &in_set,
             }
         }
         if (table.find(dest_state) == table.end()) {
-            table[dest_state] = std::set<int>();
+            table[dest_state] = Set();
         }
         table[dest_state].insert(*it);
     }
-    for (TableIterator it = table.begin(); it != table.end(); it++) {
+    for (SetTableIter it = table.begin(); it != table.end(); it++) {
         out_sets->insert(it->second);
     }
 } 
@@ -383,8 +383,8 @@ void Fsm::split_set_by_input(const std::set<int> &in_set,
 void Fsm::trim(Fsm *fsm_out) const {
     assert(fsm_out != NULL);
     fsm_out->reset();
-    std::set<int> reach_final_set(final_set_);
-    std::set<int> none_final_set, prev_none_final_set;
+    Set reach_final_set(final_set_);
+    Set none_final_set, prev_none_final_set;
     for (int i = 0; i < states_.size(); i++) {
         if (reach_final_set.find(i) == reach_final_set.end()) {
             none_final_set.insert(i);
@@ -392,7 +392,7 @@ void Fsm::trim(Fsm *fsm_out) const {
     }
     while (true) {
         prev_none_final_set  = none_final_set;
-        for (SetIterator it = prev_none_final_set.begin(); it != prev_none_final_set.end(); it++) {
+        for (SetIter it = prev_none_final_set.begin(); it != prev_none_final_set.end(); it++) {
             State *state = states_[*it];
             for (int j = 0; j < state->num_arcs(); j++) {
                 int next_state = state->arcs[j].next_state;
@@ -433,8 +433,8 @@ void Fsm::trim(Fsm *fsm_out) const {
 }
 
 // If set1 is the subset of set0
-bool Fsm::is_subset(const std::set<int> &set0, const std::set<int> &set1) const {
-    for (SetIterator it = set1.begin(); it != set1.end(); it++) {
+bool Fsm::is_subset(const Set &set0, const Set &set1) const {
+    for (SetIter it = set1.begin(); it != set1.end(); it++) {
         if (set0.find(*it) == set0.end()) {
             return false;
         }
@@ -454,12 +454,12 @@ void Fsm::minimize(Fsm *fsm_out) const {
 // Only minimize
 void Fsm::minimize_only(Fsm *fsm_out) const {
     assert(fsm_out != NULL);
-    HashSet prev_sets, current_sets, split_sets;
+    SetSet prev_sets, current_sets, split_sets;
 
-    std::set<int> label_set;
+    Set label_set;
     // Split into two sets, start and none start states
     {
-        std::set<int> other_set;
+        Set other_set;
         for (int i = 0; i < states_.size(); i++) {
             if (i != start_) {
                 other_set.insert(i);
@@ -471,13 +471,13 @@ void Fsm::minimize_only(Fsm *fsm_out) const {
 
     // Split into minimun sets
     while (true) {
-        for (SetSetIterator it_i = prev_sets.begin(); it_i != prev_sets.end(); it_i++) {
+        for (SetSetIter it_i = prev_sets.begin(); it_i != prev_sets.end(); it_i++) {
             if (1 == it_i->size()) continue; 
             get_label_set(*it_i, &label_set);
-            for (SetIterator it_j = label_set.begin(); it_j != label_set.end(); it_j++) {
+            for (SetIter it_j = label_set.begin(); it_j != label_set.end(); it_j++) {
                 split_set_by_input(*it_i, *it_j, &split_sets); 
                 //std::cerr << "input set { ";
-                //for (SetIterator it_k = it_i->begin(); it_k != it_i->end(); it_k++) {
+                //for (SetIter it_k = it_i->begin(); it_k != it_i->end(); it_k++) {
                 //    std::cerr << *it_k << " ";
                 //}
                 //std::cerr << "}\n";
@@ -500,11 +500,11 @@ void Fsm::minimize_only(Fsm *fsm_out) const {
     // Fsm out add state and set final state
     int start = fsm_out->add_state();
     fsm_out->set_start(start);
-    HashTable table;
-    std::set<int> start_set;
+    SetTable table;
+    Set start_set;
     start_set.insert(start_); //
     table.insert(std::make_pair(start_set, start));
-    for (SetSetIterator it = current_sets.begin(); it != current_sets.end(); it++) {
+    for (SetSetIter it = current_sets.begin(); it != current_sets.end(); it++) {
         int state_id = fsm_out->add_state(); 
         table[*it] = state_id;
         if (is_final(*it)) {
@@ -512,31 +512,31 @@ void Fsm::minimize_only(Fsm *fsm_out) const {
         }
     }
     // Fsm and arc Information
-    std::set<int> out_set;
-    for (TableIterator it_i = table.begin(); it_i != table.end(); it_i++) {
+    Set out_set;
+    for (SetTableIter it_i = table.begin(); it_i != table.end(); it_i++) {
         get_label_set(it_i->first, &label_set);
-        for (SetIterator it_j = label_set.begin(); it_j != label_set.end(); it_j++) {
+        for (SetIter it_j = label_set.begin(); it_j != label_set.end(); it_j++) {
             out_set.clear();
             move(it_i->first, *it_j, &out_set);
             //std::cerr << "input set { ";
-            //for (SetIterator it_k = it_i->first.begin(); it_k != it_i->first.end(); it_k++) {
+            //for (SetIter it_k = it_i->first.begin(); it_k != it_i->first.end(); it_k++) {
             //    std::cerr << *it_k << " ";
             //}
             //std::cerr << "} ";
             //std::cerr << "out set on label " << *it_j << " { ";
-            //for (SetIterator it_k = out_set.begin(); it_k != out_set.end(); it_k++) {
+            //for (SetIter it_k = out_set.begin(); it_k != out_set.end(); it_k++) {
             //    std::cerr << *it_k << " ";
             //}
             //std::cerr << "}\n";
             if (out_set.size() > 0) {
-                const std::set<int> *key_set = NULL;
+                const Set *key_set = NULL;
                 // key In the table
                 if (table.find(out_set) != table.end()) {
                    key_set = &out_set; 
                 }
                 // Not In the tabel, is subset of the one set in the tabel
                 else {
-                    for (TableIterator it_n = table.begin(); it_n != table.end(); it_n++) {
+                    for (SetTableIter it_n = table.begin(); it_n != table.end(); it_n++) {
                         if (is_subset(it_n->first, out_set)) {
                             key_set = &it_n->first;
                             break;

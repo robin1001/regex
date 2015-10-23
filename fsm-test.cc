@@ -36,24 +36,24 @@ public:
 };
 
 void FsmTest::test_all() {
-    //test_read_topo();
-    //// - Test epsilon_closure
-    //test_epsilon_closure();
-    //// - Test move
-    //test_move(); 
-    //// - Test move
-    //test_get_label_set(); 
-    //// - Test run_nfa
-    //test_run_nfa();
-    //// - Test determine
-    //test_determine();
-    //// - Test split by input
-    //test_split_set_by_input();
+    test_read_topo();
+    // - Test epsilon_closure
+    test_epsilon_closure();
+    // - Test move
+    test_move(); 
+    // - Test move
+    test_get_label_set(); 
+    // - Test run_nfa
+    test_run_nfa();
+    // - Test determine
+    test_determine();
+    // - Test split by input
+    test_split_set_by_input();
     // - Test trim
     test_trim();
     // - Test fsm Minimize()
-    //test_minimize();
-    //// - Test fsm memory if stack overflow on big state size
+    test_minimize();
+    // - Test fsm memory if stack overflow on big state size
     //test_memory();
 }
 
@@ -101,7 +101,7 @@ void FsmTest::test_epsilon_closure() {
     const char *tmpfile = "tmp.topo";
 	write_tmp_file(tmpfile, topo);
     read_topo(tmpfile);
-    std::set<int> in_set, out_set, ans_set;
+    Set in_set, out_set, ans_set;
     in_set.insert(0);
     ans_set.insert(0), ans_set.insert(1), ans_set.insert(2);
     epsilon_closure(in_set, &out_set);
@@ -116,7 +116,7 @@ void FsmTest::test_move() {
     const char *tmpfile = "tmp.topo";
 	write_tmp_file(tmpfile, topo);
     read_topo(tmpfile);
-    std::set<int> in_set, out_set, ans_set;
+    Set in_set, out_set, ans_set;
     in_set.insert(0);
     ans_set.insert(1), ans_set.insert(2);
     move(in_set, 1, &out_set);
@@ -134,7 +134,7 @@ void FsmTest::test_get_label_set() {
     const char *tmpfile = "tmp.topo";
 	write_tmp_file(tmpfile, topo);
     read_topo(tmpfile);
-    std::set<int> in_set, label_set, ans_set;
+    Set in_set, label_set, ans_set;
     in_set.insert(0), in_set.insert(1), in_set.insert(2);
     ans_set.insert(1), ans_set.insert(3);
     get_label_set(in_set, &label_set);
@@ -201,10 +201,10 @@ void FsmTest::test_split_set_by_input() {
     const char *tmpfile = "tmp.topo";
 	write_tmp_file(tmpfile, topo);
     read_topo(tmpfile);
-    std::set<int> in_set;
+    Set in_set;
     
-    HashSet out_sets; 
-    //std::unordered_set<std::set<int> > out_sets; 
+    SetSet out_sets; 
+    //std::unordered_set<Set > out_sets; 
     in_set.insert(1), in_set.insert(2), in_set.insert(3);
     split_set_by_input(in_set, 1, &out_sets);
     assert(out_sets.size() == 1);

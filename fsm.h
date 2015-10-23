@@ -39,13 +39,6 @@ struct State {
 // Finite State Machine
 class Fsm {
 public:
-    typedef std::set<int>::iterator SetIterator;
-    typedef std::unordered_map<std::set<int>, int, SetIntHash, SetIntEqual> HashTable;
-    typedef HashTable::iterator TableIterator;
-    typedef std::unordered_set<std::set<int>, SetIntHash, SetIntEqual> HashSet;
-    typedef HashSet::iterator SetSetIterator;
-public:
-
     Fsm(): start_(0) {}
     Fsm(const char *topo_file);
     ~Fsm(); 
@@ -85,25 +78,25 @@ public:
     void determine(Fsm *fsm_out) const; 
     void minimize_only(Fsm *fsm_out) const; 
     void minimize(Fsm *fsm_out) const; 
-    bool is_final(const std::set<int> &t) const;
+    bool is_final(const Set &t) const;
     bool is_final(int id) const;
     void trim(Fsm *fsm_out) const; 
 protected:
-    void epsilon_closure(const std::set<int> &in_set, 
-                         std::set<int> *out_set) const; 
-    void split_set_by_input(const std::set<int> &in_set, 
+    void epsilon_closure(const Set &in_set, 
+                         Set *out_set) const; 
+    void split_set_by_input(const Set &in_set, 
                             int label, 
-                            HashSet *out_sets) const;
-    void move(const std::set<int> &in_set, 
+                            SetSet *out_sets) const;
+    void move(const Set &in_set, 
               int label, 
-              std::set<int> *out_set) const; 
-    bool is_subset(const std::set<int> &set0, const std::set<int> &set1) const;
-    void get_label_set(const std::set<int> &state_set, 
-                        std::set<int> *label_set) const;
+              Set *out_set) const; 
+    bool is_subset(const Set &set0, const Set &set1) const;
+    void get_label_set(const Set &state_set, 
+                        Set *label_set) const;
 
 protected:
     int start_;
-    std::set<int> final_set_;
+    Set final_set_;
     std::vector<State *> states_;
 private:
     Fsm &operator=(const Fsm &);
