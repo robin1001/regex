@@ -29,14 +29,32 @@ public:
     void test_run_nfa(); 
     void test_determine();
     void test_split_set_by_input();
+    void test_trim();
     void test_minimize();
     void test_memory();
     void test_all();
 };
 
 void FsmTest::test_all() {
-    test_read_topo();
-
+    //test_read_topo();
+    //// - Test epsilon_closure
+    //test_epsilon_closure();
+    //// - Test move
+    //test_move(); 
+    //// - Test move
+    //test_get_label_set(); 
+    //// - Test run_nfa
+    //test_run_nfa();
+    //// - Test determine
+    //test_determine();
+    //// - Test split by input
+    //test_split_set_by_input();
+    // - Test trim
+    test_trim();
+    // - Test fsm Minimize()
+    //test_minimize();
+    //// - Test fsm memory if stack overflow on big state size
+    //test_memory();
 }
 
 void FsmTest::test_memory() {
@@ -195,6 +213,24 @@ void FsmTest::test_split_set_by_input() {
     assert(out_sets.size() == 2);
 }
 
+void FsmTest::test_trim() {
+    reset();
+    int start = add_state();
+    set_start(start);
+    int num = 1024 * 20;
+    for (int i = 1; i < num; i++) {
+        int next_state = add_state();
+        //add_arc(next_state-1, Arc(i, next_state));
+        add_arc(start, Arc(i, next_state));
+    }
+    set_final(num-1);
+    Fsm fsm_out;
+    trim(&fsm_out);
+    //std::cerr << fsm_out.num_states() << " " << fsm_out.num_arcs() << "\n";
+    assert(fsm_out.num_states() == 2);
+    assert(fsm_out.num_arcs() == 1);
+}
+
 void FsmTest::test_minimize() {
     const char *topo = "0 1 1\n"
                  	   "0 2 2\n"
@@ -214,24 +250,7 @@ void FsmTest::test_minimize() {
 int main() {
     // - Test read 
     FsmTest fsm_test;
-    //fsm_test.test_read_topo();
-    //// - Test epsilon_closure
-    //fsm_test.test_epsilon_closure();
-    //// - Test move
-    //fsm_test.test_move(); 
-    //// - Test move
-    //fsm_test.test_get_label_set(); 
-    //// - Test run_nfa
-    //fsm_test.test_run_nfa();
-    //// - Test determine
-    //fsm_test.test_determine();
-    //// - Test split by input
-    //fsm_test.test_split_set_by_input();
-    //// - Test fsm Minimize()
-    //fsm_test.test_minimize();
-    // - Test fsm memory if stack overflow on big state size
-    fsm_test.test_memory();
-
+    fsm_test.test_all();
     return 0;
 }
 

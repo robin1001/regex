@@ -27,4 +27,5 @@ fsm.o: fsm.h utils.h
 
 .PHONY: clean
 clean:
+	-rm -f $(BIN) $(TEST_BIN)
 	-rm -f *.exe *.o *.stackdump core.*

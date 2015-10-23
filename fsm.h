@@ -83,9 +83,11 @@ public:
     void fsm_info () const; 
     bool run_nfa(const std::vector<int> &input) const;
     void determine(Fsm *fsm_out) const; 
+    void minimize_only(Fsm *fsm_out) const; 
     void minimize(Fsm *fsm_out) const; 
     bool is_final(const std::set<int> &t) const;
     bool is_final(int id) const;
+    void trim(Fsm *fsm_out) const; 
 protected:
     void epsilon_closure(const std::set<int> &in_set, 
                          std::set<int> *out_set) const; 
@@ -103,6 +105,8 @@ protected:
     int start_;
     std::set<int> final_set_;
     std::vector<State *> states_;
+private:
+    Fsm &operator=(const Fsm &);
 };
 
 #endif

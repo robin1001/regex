@@ -379,6 +379,59 @@ void Fsm::split_set_by_input(const std::set<int> &in_set,
     }
 } 
 
+// Delete states which can not reach the final state
+void Fsm::trim(Fsm *fsm_out) const {
+    assert(fsm_out != NULL);
+    fsm_out->reset();
+    std::set<int> reach_final_set(final_set_);
+    std::set<int> none_final_set, prev_none_final_set;
+    for (int i = 0; i < states_.size(); i++) {
+        if (reach_final_set.find(i) == reach_final_set.end()) {
+            none_final_set.insert(i);
+        }
+    }
+    while (true) {
+        prev_none_final_set  = none_final_set;
+        for (SetIterator it = prev_none_final_set.begin(); it != prev_none_final_set.end(); it++) {
+            State *state = states_[*it];
+            for (int j = 0; j < state->num_arcs(); j++) {
+                int next_state = state->arcs[j].next_state;
+                if (reach_final_set.find(next_state) != reach_final_set.end()) {
+                    reach_final_set.insert(*it); 
+                    none_final_set.erase(*it);
+                }
+            }
+        }
+        if (none_final_set.size() == prev_none_final_set.size())
+            break;
+    }
+    // Start Must in none_final_set
+    assert(reach_final_set.find(start_) != reach_final_set.end());
+
+    std::unordered_map<int, int> state_map;
+    int start = fsm_out->add_state();
+    state_map.insert(std::make_pair(start_,start));
+    for (int i = 0; i < states_.size(); i++) {
+        if (i == start_) continue;
+        if (reach_final_set.find(i) != reach_final_set.end()) {
+            int state = fsm_out->add_state(); 
+            if (is_final(i)) fsm_out->set_final(state);
+            state_map.insert(std::make_pair(i, state));
+        }
+    }
+    std::unordered_map<int, int>::iterator it = state_map.begin();
+    for (; it != state_map.end(); it++) {
+        State *state = states_[it->first];
+        for (int j = 0; j < state->num_arcs(); j++) {
+            int label = state->arcs[j].ilabel;
+            int next_state = state->arcs[j].next_state;
+            if (state_map.find(next_state) != state_map.end()) {
+                fsm_out->add_arc(it->second, Arc(label, state_map[next_state]));
+            }
+        }
+    }
+}
+
 // If set1 is the subset of set0
 bool Fsm::is_subset(const std::set<int> &set0, const std::set<int> &set1) const {
     for (SetIterator it = set1.begin(); it != set1.end(); it++) {
@@ -389,7 +442,17 @@ bool Fsm::is_subset(const std::set<int> &set0, const std::set<int> &set1) const 
     return true;
 }
 
+// First trim, then do minimize
 void Fsm::minimize(Fsm *fsm_out) const {
+    assert(fsm_out != NULL);
+    Fsm *fsm_tmp = new Fsm;
+    trim(fsm_tmp);
+    fsm_tmp->minimize_only(fsm_out);
+    delete fsm_tmp;
+}
+
+// Only minimize
+void Fsm::minimize_only(Fsm *fsm_out) const {
     assert(fsm_out != NULL);
     HashSet prev_sets, current_sets, split_sets;
 
@@ -489,3 +552,4 @@ void Fsm::minimize(Fsm *fsm_out) const {
         }
     }
 }
+
