@@ -21,3 +21,9 @@ expr -> factorfactor | #Á¬½ÓÔËËã
 exprs -> expr exprs
 ```
 
+## FSM Determine Example
+look at the fsm-test.cc:test_determine() function
+
+![FSM Determine](./img/determine.png "Determine Procedure")
+
+![FSM Determine Result](./img/dfa.png "Determine Result DFA")
